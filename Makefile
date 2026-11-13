@@ -6,6 +6,8 @@ install:
 test:
 	python tests/test_vigil.py
 	python tests/test_events.py
+	python tests/test_server.py
+	python tests/test_frontend.py
 
 serve:
 	uvicorn server:app --reload --port 8000

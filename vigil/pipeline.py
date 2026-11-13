@@ -176,7 +176,11 @@ class Pipeline:
         self.source.stop()
         for t in self._tasks:
             t.cancel()
-        await asyncio.gather(*self._tasks, return_exceptions=True)
+        if self._tasks:
+            try:
+                await asyncio.gather(*self._tasks, return_exceptions=True)
+            except (ValueError, RuntimeError):
+                pass
         self._tasks.clear()
         self._flush_drop_run()
         self._flush_speech_run()

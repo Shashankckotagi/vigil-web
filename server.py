@@ -202,6 +202,20 @@ async def stop() -> Any:
     return {"ok": True, "status": hub.pipeline.status()}
 
 
+@app.get("/api/pricing")
+async def pricing() -> Any:
+    path = os.path.join(HERE, "pricing.json")
+    if os.path.exists(path):
+        import json
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {
+        "gemini-2.5-flash": {"input_per_million": 0.075, "output_per_million": 0.30},
+        "default": {"input_per_million": 0.075, "output_per_million": 0.30},
+        "usd_to_inr": 86.0
+    }
+
+
 @app.get("/api/status")
 async def status() -> Any:
     if not hub.pipeline:
@@ -223,3 +237,9 @@ async def ws_endpoint(ws: WebSocket) -> None:
 
 if os.path.isdir(STATIC):
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
+    css_dir = os.path.join(STATIC, "css")
+    js_dir = os.path.join(STATIC, "js")
+    if os.path.isdir(css_dir):
+        app.mount("/css", StaticFiles(directory=css_dir), name="css")
+    if os.path.isdir(js_dir):
+        app.mount("/js", StaticFiles(directory=js_dir), name="js")
