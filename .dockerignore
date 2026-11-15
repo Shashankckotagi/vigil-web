@@ -1,0 +1,17 @@
+.git
+.github
+node_modules
+dist
+venv
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+logs/
+scratch/
+test-reports/
+.env
+.env.local
+.DS_Store

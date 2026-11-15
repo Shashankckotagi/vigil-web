@@ -32,12 +32,17 @@ def test_index_page():
     assert "text/html" in response.headers["content-type"]
     text = response.text
     assert "<title>VIGIL" in text
-    assert 'href="./css/theme.css"' in text or 'href="/static/css/theme.css"' in text
-    assert 'src="./js/app.js"' in text or 'src="/static/js/app.js"' in text
-    assert 'id="btnStart"' in text
-    assert 'id="btnStop"' in text
-    assert 'id="ssimChart"' in text
-    assert 'id="timelineFeed"' in text
+    is_vite = ('/assets/' in text) or ('id="root"' in text)
+    if is_vite:
+        assert 'id="root"' in text
+        assert '/assets/' in text
+    else:
+        assert 'href="./css/theme.css"' in text or 'href="/static/css/theme.css"' in text
+        assert 'src="./js/app.js"' in text or 'src="/static/js/app.js"' in text
+        assert 'id="btnStart"' in text
+        assert 'id="btnStop"' in text
+        assert 'id="ssimChart"' in text
+        assert 'id="timelineFeed"' in text
 
 
 def test_static_assets():
@@ -172,6 +177,80 @@ def test_websocket_endpoint_and_hub():
             msg = ws.receive_json()
             assert msg.get("text") == "WebSocket integration test event"
             assert msg.get("tokens") == 42
+
+
+def test_verify_key_endpoint():
+    """POST /api/verify-key validates API key presence and gateway ping."""
+    client = TestClient(app)
+
+    # 1. Mock provider needs no key
+    mock_resp = client.post("/api/verify-key", json={"api_key": "", "provider": "mock"})
+    assert mock_resp.status_code == 200
+    assert mock_resp.json().get("valid") is True
+
+    # 2. Empty key for Gemini returns 400
+    empty_resp = client.post("/api/verify-key", json={"api_key": "", "provider": "gemini"})
+    assert empty_resp.status_code == 400
+    assert empty_resp.json().get("valid") is False
+    assert "cannot be empty" in empty_resp.json().get("error", "").lower()
+
+    # 3. Invalid dummy key for Gemini returns failure with descriptive message
+    invalid_resp = client.post("/api/verify-key", json={
+        "api_key": "AIzaSy_fake_invalid_test_key_12345",
+        "provider": "gemini",
+        "model": "gemini-2.5-flash"
+    })
+    # Will fail at Google gateway with 400/401/403 or network error
+    assert invalid_resp.status_code in (400, 401, 403, 500, 504)
+    data = invalid_resp.json()
+    assert data.get("valid") is False
+    assert "error" in data
+
+
+def test_start_requires_gemini_api_key():
+    """POST /api/start refuses to start Gemini inferences without configured API key."""
+    # Temporarily ensure GEMINI_API_KEY is unset in environment for this test
+    old_env = os.environ.pop("GEMINI_API_KEY", None)
+    try:
+        client = TestClient(app)
+        # Attempt starting with provider=gemini without key
+        resp = client.post("/api/start", json={
+            "url": "tests/fixtures/synthetic_bar.mp4",
+            "provider": "gemini",
+            "api_key": ""
+        })
+        assert resp.status_code == 400
+        assert "Gemini API key is required" in resp.json().get("error", "")
+
+        # Attempt starting with model variant provider=gemini-2.5-pro without key
+        resp2 = client.post("/api/start", json={
+            "url": "tests/fixtures/synthetic_bar.mp4",
+            "provider": "gemini-2.5-pro",
+            "api_key": ""
+        })
+        assert resp2.status_code == 400
+        assert "Gemini API key is required" in resp2.json().get("error", "")
+    finally:
+        if old_env is not None:
+            os.environ["GEMINI_API_KEY"] = old_env
+
+
+def test_pricing_includes_latest_gemini_models():
+    """GET /api/pricing includes full configuration for latest Gemini models."""
+    client = TestClient(app)
+    resp = client.get("/api/pricing")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "gemini-3.5-flash-lite" in data
+    assert "gemini-4-carbon" in data
+    assert "gemini-4-argon" in data
+    assert "gemini-4-hydrogen" in data
+    assert "gemini-2.5-flash" in data
+    assert "gemini-2.5-pro" in data
+    assert "gemini-2.0-flash" in data
+    assert "gemini-2.0-flash-lite" in data
+    assert "gemini-1.5-flash" in data
+    assert "gemini-1.5-pro" in data
 
 
 if __name__ == "__main__":

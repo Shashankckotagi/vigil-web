@@ -98,11 +98,23 @@ class VideoGate:
 
     def _thumb(self, frame: np.ndarray) -> np.ndarray:
         n = self.cfg.ssim_size
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
+        if frame.ndim == 2:
+            gray = frame
+        elif frame.ndim == 3 and frame.shape[2] == 4:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY)
+        elif frame.ndim == 3 and frame.shape[2] == 3:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        elif frame.ndim == 3 and frame.shape[2] == 1:
+            gray = frame[:, :, 0]
+        else:
+            gray = frame
         return cv2.resize(gray, (n, n), interpolation=cv2.INTER_AREA)
 
     def should_keep(self, frame: np.ndarray) -> tuple[bool, float]:
         """Return (keep, ssim_score). Score is 1.0 for the first frame."""
+        if frame is None or getattr(frame, "size", 0) == 0:
+            return False, 0.0
+
         self.stats.frames_seen += 1
 
         if not self.cfg.gate_enabled:
@@ -146,8 +158,11 @@ class AudioGate:
     @staticmethod
     def rms(pcm: bytes) -> float:
         """Normalised RMS in 0..1 for 16-bit mono PCM."""
-        if not pcm:
+        if not pcm or len(pcm) < 2:
             return 0.0
+        # If odd number of bytes, truncate dangling byte so int16 array is valid
+        if len(pcm) % 2 != 0:
+            pcm = pcm[:len(pcm) - 1]
         a = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
         if a.size == 0:
             return 0.0
@@ -163,6 +178,10 @@ class AudioGate:
             if speech:
                 self.stats.audio_frames_kept += 1
             return speech, level
+
+        # Ensure pcm length is even
+        if len(pcm) % 2 != 0:
+            pcm = pcm[:len(pcm) - 1]
 
         if len(pcm) != self._expected:
             pcm = (pcm[:self._expected] if len(pcm) > self._expected

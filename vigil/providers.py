@@ -189,17 +189,23 @@ class GeminiProvider(BaseProvider):
             raise ProviderError("GEMINI_API_KEY is not set")
         self.cfg = cfg
         self._client = httpx.AsyncClient(timeout=cfg.request_timeout_s)
+        self.model_name = getattr(cfg, "gemini_model", "gemini-2.5-flash") or "gemini-2.5-flash"
         self._url = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{cfg.gemini_model}:generateContent"
+            f"{self.model_name}:generateContent"
         )
 
     async def describe(self, prompt: str, images: list[str]) -> Completion:
         t0 = time.monotonic()
         parts: list[dict] = [{"text": prompt}]
         for b64 in images:
-            parts.append({"inline_data": {"mime_type": "image/jpeg",
-                                          "data": b64}})
+            clean_b64 = b64.split(",")[-1] if "," in b64 else b64
+            parts.append({
+                "inlineData": {
+                    "mimeType": "image/jpeg",
+                    "data": clean_b64
+                }
+            })
         body = {
             "contents": [{"role": "user", "parts": parts}],
             "generationConfig": {"temperature": 0.2, "maxOutputTokens": 200},
@@ -240,7 +246,10 @@ class GeminiProvider(BaseProvider):
 
 def make_provider(cfg) -> BaseProvider:
     name = (cfg.provider or "mock").lower()
-    if name == "gemini":
+    if name == "gemini" or name.startswith("gemini-"):
+        if name.startswith("gemini-"):
+            cfg.gemini_model = name
+            cfg.provider = "gemini"
         return GeminiProvider(cfg)
     if name == "ollama":
         return OllamaProvider(cfg)

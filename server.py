@@ -15,6 +15,7 @@ import os
 import time
 from typing import Any
 
+import numpy as np
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
@@ -32,6 +33,7 @@ log = logging.getLogger("vigil.server")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 STATIC = os.path.join(HERE, "static")
+DIST = os.path.join(HERE, "dist")
 
 app = FastAPI(title="VIGIL", version="0.1.0")
 
@@ -49,11 +51,41 @@ class StartRequest(BaseModel):
     tau: float | None = None
     escalation: bool | None = None
     provider: str | None = None
+    model: str | None = None
+    gemini_model: str | None = None
     bounded: bool | None = None
     audio: bool = True
     gate: bool | None = None
     run_id: str | None = None
     api_key: str | None = None
+
+
+class VerifyKeyRequest(BaseModel):
+    api_key: str
+    model: str | None = "gemini-2.5-flash"
+    provider: str | None = "gemini"
+
+
+def _sanitize_event(obj: Any) -> Any:
+    """Ensure all event payloads are JSON-serializable (converts numpy types)."""
+    if isinstance(obj, dict):
+        return {k: _sanitize_event(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_event(v) for v in obj]
+    if isinstance(obj, np.ndarray):
+        return [_sanitize_event(v) for v in obj.tolist()]
+    if isinstance(obj, (np.floating, float)):
+        return float(obj)
+    if isinstance(obj, (np.integer, int)):
+        return int(obj)
+    if hasattr(obj, "item") and callable(getattr(obj, "item")):
+        try:
+            return obj.item()
+        except Exception:
+            pass
+    if isinstance(obj, bytes):
+        return obj.decode("utf-8", errors="replace")
+    return obj
 
 
 class Hub:
@@ -86,11 +118,12 @@ class Hub:
 
     def publish(self, event: dict) -> None:
         # Frame events are high-rate; keep other observable action events in recent history
-        if event.get("type") != "frame":
-            self._recent.append(event)
+        safe_ev = _sanitize_event(event)
+        if safe_ev.get("type") != "frame":
+            self._recent.append(safe_ev)
             self._recent = self._recent[-200:]
         if self._loop and not self._loop.is_closed():
-            asyncio.run_coroutine_threadsafe(self._send(event), self._loop)
+            asyncio.run_coroutine_threadsafe(self._send(safe_ev), self._loop)
 
     async def _send(self, event: dict) -> None:
         dead = []
@@ -114,14 +147,35 @@ async def _startup() -> None:
 
 @app.get("/")
 async def index() -> Any:
+    dist_index = os.path.join(DIST, "index.html")
+    if os.path.exists(dist_index):
+        return FileResponse(dist_index)
     path = os.path.join(STATIC, "index.html")
     if not os.path.exists(path):
-        return JSONResponse({"error": "static/index.html missing"}, 500)
+        return JSONResponse({"error": "frontend index.html missing"}, 500)
     return FileResponse(path)
 
 
 @app.post("/api/start")
 async def start(req: StartRequest) -> Any:
+    if not req.url or not req.url.strip():
+        return JSONResponse({"error": "url is required and cannot be empty"}, 400)
+
+    if req.tau is not None and not (0.0 <= float(req.tau) <= 1.0):
+        return JSONResponse({"error": "tau must be between 0.0 and 1.0"}, 400)
+
+    p_lower = (req.provider or "").lower()
+    if p_lower and p_lower not in ("mock", "gemini", "ollama") and not p_lower.startswith("gemini-"):
+        return JSONResponse({"error": f"unsupported provider: {req.provider}"}, 400)
+
+    # Enforce API key requirement for Gemini before inferences can begin
+    if p_lower == "gemini" or p_lower.startswith("gemini-"):
+        key = (req.api_key or "").strip() or os.getenv("GEMINI_API_KEY", "").strip()
+        if not key:
+            return JSONResponse({
+                "error": "Gemini API key is required before starting inferences. Please configure and verify your Gemini API key."
+            }, 400)
+
     if hub.pipeline and hub.pipeline._running:
         log.info("stopping previous pipeline before starting new one")
         await hub.pipeline.stop()
@@ -133,7 +187,13 @@ async def start(req: StartRequest) -> Any:
     if req.escalation is not None:
         cfg.escalation_enabled = bool(req.escalation)
     if req.provider:
-        cfg.provider = req.provider
+        cfg.provider = req.provider.lower()
+    if req.model:
+        cfg.gemini_model = req.model.strip()
+    elif req.gemini_model:
+        cfg.gemini_model = req.gemini_model.strip()
+    elif p_lower.startswith("gemini-"):
+        cfg.gemini_model = p_lower
     if req.bounded is not None:
         cfg.memory_bounded = bool(req.bounded)
     if req.gate is not None:
@@ -143,7 +203,7 @@ async def start(req: StartRequest) -> Any:
     cfg.run_id = req.run_id or f"ui-{int(time.time())}"
 
     try:
-        pipeline = Pipeline(req.url, cfg, with_audio=req.audio)
+        pipeline = Pipeline(req.url.strip(), cfg, with_audio=req.audio)
     except Exception as e:
         log.exception("failed to construct pipeline")
         return JSONResponse({"error": str(e)}, 400)
@@ -186,20 +246,166 @@ async def upload_video(file: UploadFile = File(...)) -> Any:
     """Accept video file upload and return its local server path."""
     upload_dir = os.path.join(HERE, "uploads")
     os.makedirs(upload_dir, exist_ok=True)
-    clean_filename = f"{int(time.time())}_{file.filename}"
+    raw_name = file.filename or "upload.mp4"
+    safe_name = os.path.basename(raw_name).strip() or "upload.mp4"
+    clean_filename = f"{int(time.time())}_{safe_name}"
     dest_path = os.path.join(upload_dir, clean_filename)
     content = await file.read()
+    if not content:
+        return JSONResponse({"error": "uploaded file is empty"}, 400)
     with open(dest_path, "wb") as f:
         f.write(content)
-    return {"ok": True, "path": dest_path, "filename": file.filename}
+    return {"ok": True, "path": dest_path, "filename": safe_name}
 
 
 @app.post("/api/stop")
 async def stop() -> Any:
-    if not hub.pipeline:
+    if not hub.pipeline or not hub.pipeline._running:
         return JSONResponse({"error": "nothing running"}, 400)
     await hub.pipeline.stop()
     return {"ok": True, "status": hub.pipeline.status()}
+
+
+@app.post("/api/verify-key")
+async def verify_key(req: VerifyKeyRequest) -> Any:
+    """Verify that an API key works by sending a minimal ping request to the model gateway."""
+    key = (req.api_key or "").strip()
+    provider = (req.provider or "gemini").lower()
+    model = (req.model or "gemini-2.5-flash").strip()
+
+    if provider == "mock":
+        return {
+            "valid": True,
+            "provider": "mock",
+            "model": "mock",
+            "message": "Local Computer Vision runs locally and requires no API key."
+        }
+
+    if not key:
+        return JSONResponse({
+            "valid": False,
+            "error": "API key cannot be empty. Please enter a valid Gemini API key."
+        }, 400)
+
+    import httpx
+    t0 = time.monotonic()
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    payload = {
+        "contents": [{"role": "user", "parts": [{"text": "ping"}]}],
+        "generationConfig": {"temperature": 0.0, "maxOutputTokens": 2}
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                url,
+                json=payload,
+                headers={"x-goog-api-key": key, "Content-Type": "application/json"}
+            )
+            latency_ms = (time.monotonic() - t0) * 1000.0
+
+            if resp.status_code == 200:
+                available_models = []
+                try:
+                    m_resp = await client.get(
+                        "https://generativelanguage.googleapis.com/v1beta/models",
+                        headers={"x-goog-api-key": key}
+                    )
+                    if m_resp.status_code == 200:
+                        m_data = m_resp.json()
+                        for m in m_data.get("models", []):
+                            m_id = m.get("name", "").replace("models/", "")
+                            methods = m.get("supportedGenerationMethods", [])
+                            if "generateContent" in methods and m_id:
+                                available_models.append(m_id)
+                except Exception:
+                    pass
+
+                return {
+                    "valid": True,
+                    "provider": "gemini",
+                    "model": model,
+                    "latency_ms": round(latency_ms, 1),
+                    "available_models": available_models if available_models else None,
+                    "message": f"Gemini API key verified successfully on {model} ({round(latency_ms, 1)}ms latency)!"
+                }
+            elif resp.status_code in (400, 401, 403):
+                err_msg = "Invalid API key or unauthorized."
+                try:
+                    err_json = resp.json()
+                    err_msg = err_json.get("error", {}).get("message", err_msg)
+                except Exception:
+                    pass
+                return JSONResponse({
+                    "valid": False,
+                    "status_code": resp.status_code,
+                    "error": f"Gemini API verification failed ({resp.status_code}): {err_msg}"
+                }, 400)
+            elif resp.status_code == 429:
+                return JSONResponse({
+                    "valid": False,
+                    "status_code": 429,
+                    "error": "Gemini API key rate limit or quota exceeded (HTTP 429)."
+                }, 429)
+            else:
+                return JSONResponse({
+                    "valid": False,
+                    "status_code": resp.status_code,
+                    "error": f"Gemini API returned HTTP {resp.status_code}: {resp.text[:200]}"
+                }, 400)
+    except httpx.TimeoutException:
+        return JSONResponse({
+            "valid": False,
+            "error": "Connection timed out while contacting Gemini API gateway."
+        }, 504)
+    except Exception as e:
+        return JSONResponse({
+            "valid": False,
+            "error": f"Failed to connect to Gemini API gateway: {str(e)}"
+        }, 500)
+
+
+@app.get("/api/models")
+async def get_models(api_key: str | None = None) -> Any:
+    """Return supported Gemini models with real-time discovery if API key is provided."""
+    curated = [
+        {"id": "gemini-3.5-flash-lite", "name": "Gemini 3.5 Flash-Lite", "category": "Ultra-Fast & Cost-Efficient (Recommended)"},
+        {"id": "gemini-4-hydrogen", "name": "Gemini 4 Hydrogen", "category": "High-Speed Agentic Multimodal"},
+        {"id": "gemini-4-argon", "name": "Gemini 4 Argon", "category": "Deep Reasoning & Developer Workloads"},
+        {"id": "gemini-4-carbon", "name": "Gemini 4 Carbon", "category": "Frontier Multimodal Flagship"},
+        {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "category": "Fast & Efficient"},
+        {"id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro", "category": "Frontier Multimodal Reasoning"},
+        {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "category": "High Throughput Workhorse"},
+        {"id": "gemini-2.0-flash-lite", "name": "Gemini 2.0 Flash-Lite", "category": "Budget High Speed"},
+        {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "category": "Standard Fast Multimodal"},
+        {"id": "gemini-1.5-flash-8b", "name": "Gemini 1.5 Flash-8B", "category": "High Frequency Volume"},
+        {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro", "category": "Standard Deep Reasoning"},
+    ]
+
+    key = (api_key or "").strip() or os.getenv("GEMINI_API_KEY", "").strip()
+    if not key:
+        return {"models": curated, "live": False}
+
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=6.0) as client:
+            resp = await client.get(
+                "https://generativelanguage.googleapis.com/v1beta/models",
+                headers={"x-goog-api-key": key}
+            )
+            if resp.status_code == 200:
+                raw_models = resp.json().get("models", [])
+                live_ids = []
+                for m in raw_models:
+                    m_id = m.get("name", "").replace("models/", "")
+                    if "generateContent" in m.get("supportedGenerationMethods", []):
+                        live_ids.append(m_id)
+                if live_ids:
+                    return {"models": curated, "live_models": live_ids, "live": True}
+    except Exception:
+        pass
+
+    return {"models": curated, "live": False}
 
 
 @app.get("/api/pricing")
@@ -211,6 +417,11 @@ async def pricing() -> Any:
             return json.load(f)
     return {
         "gemini-2.5-flash": {"input_per_million": 0.075, "output_per_million": 0.30},
+        "gemini-2.5-pro": {"input_per_million": 1.25, "output_per_million": 5.00},
+        "gemini-2.0-flash": {"input_per_million": 0.10, "output_per_million": 0.40},
+        "gemini-2.0-flash-lite": {"input_per_million": 0.075, "output_per_million": 0.30},
+        "gemini-1.5-flash": {"input_per_million": 0.075, "output_per_million": 0.30},
+        "gemini-1.5-pro": {"input_per_million": 1.25, "output_per_million": 5.00},
         "default": {"input_per_million": 0.075, "output_per_million": 0.30},
         "usd_to_inr": 86.0
     }
@@ -234,6 +445,11 @@ async def ws_endpoint(ws: WebSocket) -> None:
     except Exception:
         hub.disconnect(ws)
 
+
+if os.path.isdir(DIST):
+    assets_dir = os.path.join(DIST, "assets")
+    if os.path.isdir(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
 if os.path.isdir(STATIC):
     app.mount("/static", StaticFiles(directory=STATIC), name="static")

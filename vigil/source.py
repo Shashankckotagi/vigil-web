@@ -91,8 +91,14 @@ def resolve_url(url: str, target_height: int = 480) -> str:
         # sometimes rejects them even with "best".
         log.warning("format filter failed; extracting without processing")
         opts.pop("format", None)
-        with yt_dlp.YoutubeDL(opts) as ydl2:
-            info = ydl2.extract_info(url, download=False, process=False)
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl2:
+                info = ydl2.extract_info(url, download=False, process=False)
+        except Exception:
+            pass
+
+    if info is None:
+        raise SourceError(f"yt-dlp could not retrieve stream information for {url}")
 
     if info.get("url"):
         return info["url"]

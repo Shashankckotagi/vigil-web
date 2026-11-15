@@ -1,13 +1,16 @@
 services:
   - type: web
-    name: vigil-perception
+    name: vigil-backend
     env: docker
     dockerfilePath: Dockerfile
     plan: free
     healthCheckPath: /api/status
     envVars:
+      - key: VIGIL_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
       - key: VIGIL_LOG_LEVEL
         value: INFO
-      - key: VIGIL_PROVIDER
-        value: mock
-

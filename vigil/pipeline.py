@@ -141,6 +141,7 @@ class Pipeline:
             "running": self._running,
             "url": self.url,
             "provider": self.provider.name,
+            "model": getattr(self.provider, "model_name", getattr(self.cfg, "gemini_model", self.provider.name)),
             "tau": round(self.video_gate.tau, 4),
             "escalated": self.escalator.active,
             "queue_depth": self.queue.qsize(),

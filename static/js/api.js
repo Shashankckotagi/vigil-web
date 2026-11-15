@@ -3,7 +3,12 @@
  */
 
 export function getBackendUrl() {
-  return (localStorage.getItem('vigil_backend_url') || '').trim().replace(/\/$/, '');
+  const stored = typeof localStorage !== 'undefined' ? (localStorage.getItem('vigil_backend_url') || '').trim() : '';
+  if (stored) return stored.replace(/\/+$/, '');
+  if (typeof window !== 'undefined' && window.VIGIL_BACKEND_URL) {
+    return String(window.VIGIL_BACKEND_URL).trim().replace(/\/+$/, '');
+  }
+  return '';
 }
 
 export function setBackendUrl(url) {

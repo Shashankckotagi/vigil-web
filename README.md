@@ -8,6 +8,8 @@
 
 Paste a live URL (RTSP, YouTube Live, HLS, webcam, or video file). A timeline fills with structured interpretations of what is happening in the real world. **The cost of running the stream never explodes over time.**
 
+For complete architecture details, API specifications, and benchmark methodology, see [DOCUMENTATION.md](DOCUMENTATION.md).
+
 ---
 
 ## 🌐 Live Online Demo
@@ -30,7 +32,7 @@ VIGIL places four specialized stages between the camera and the multimodal found
                                    (anchor + summary + last k)
 ```
 
-The vision and audio gates run **strictly zero neural networks** — pure deterministic signal processing (SSIM downsampled to 128px + WebRTC VAD) that drops ~70% of empty frames at the edge with zero GPU footprint:
+The vision and audio gates run **strictly zero neural networks**, using pure deterministic signal processing (SSIM downsampled to 128px and WebRTC VAD) that drops ~70% of empty frames at the edge with zero GPU footprint:
 
 <p align="center">
   <img src="figures/fig4_architecture.png" alt="VIGIL System Architecture" width="550" />
@@ -109,6 +111,26 @@ Or build locally:
 docker build -t vigil .
 docker run -p 8000:8000 vigil
 ```
+
+---
+
+## ☁️ Cloud Hosting (Render & Vercel)
+
+You can host VIGIL with the backend on Render and the frontend on Vercel:
+
+1. **Deploy backend on Render**:
+   - Create a Web Service connected to this repository using the **Docker** runtime.
+   - Set environment variables: `VIGIL_PROVIDER=gemini`, `GEMINI_API_KEY=<your-key>`, and health check path to `/api/status`.
+   - Copy your Render service URL (such as `https://vigil-backend.onrender.com`).
+2. **Deploy frontend on Vercel**:
+   - Import this repository into Vercel. Settings are detected from `vercel.json` automatically.
+   - Add the environment variable `VITE_BACKEND_URL=https://<your-render-backend>.onrender.com`.
+   - Deploy.
+3. **Usage**:
+   - The frontend connects to the Render backend and WebSocket stream automatically on load.
+   - Users can run with the server API key or enter and verify their own Gemini API key directly in the dashboard.
+
+For complete hosting instructions, see [DOCUMENTATION.md](DOCUMENTATION.md#65-hosting-on-render-and-vercel).
 
 ---
 
