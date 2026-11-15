@@ -29,6 +29,7 @@ import {
 } from './types';
 
 const STORAGE_KEY_GEMINI_KEY = 'vigil_gemini_api_key';
+const STORAGE_KEY_YOUTUBE_COOKIES = 'vigil_youtube_cookies';
 
 export const App: React.FC = () => {
   // Settings & Form State
@@ -37,6 +38,7 @@ export const App: React.FC = () => {
   const [provider, setProvider] = useState('mock');
   const [model, setModel] = useState('gemini-4-hydrogen');
   const [apiKey, setApiKey] = useState(() => localStorage.getItem(STORAGE_KEY_GEMINI_KEY) || '');
+  const [cookies, setCookies] = useState(() => localStorage.getItem(STORAGE_KEY_YOUTUBE_COOKIES) || '');
   const [runId, setRunId] = useState('');
   const [backendUrl, setBackendUrlState] = useState(() => getBackendUrl());
   const [audio, setAudio] = useState(true);
@@ -87,6 +89,16 @@ export const App: React.FC = () => {
       localStorage.setItem(STORAGE_KEY_GEMINI_KEY, key.trim());
     } else {
       localStorage.removeItem(STORAGE_KEY_GEMINI_KEY);
+    }
+  };
+
+  // Persist YouTube Cookies
+  const handleCookiesChange = (val: string) => {
+    setCookies(val);
+    if (val.trim()) {
+      localStorage.setItem(STORAGE_KEY_YOUTUBE_COOKIES, val.trim());
+    } else {
+      localStorage.removeItem(STORAGE_KEY_YOUTUBE_COOKIES);
     }
   };
 
@@ -308,6 +320,7 @@ export const App: React.FC = () => {
         model,
         api_key: apiKey.trim() || undefined,
         run_id: runId.trim() || undefined,
+        cookies: cookies.trim() || undefined,
       });
       if (res.status) setStatus(res.status);
     } catch (err: any) {
@@ -407,6 +420,9 @@ export const App: React.FC = () => {
               setGate={setGate}
               bounded={bounded}
               setBounded={setBounded}
+              cookies={cookies}
+              setCookies={handleCookiesChange}
+              hasServerCookies={!!status?.has_youtube_cookies}
               isRunning={!!status?.running}
               isStarting={isStarting}
               isUploading={isUploading}

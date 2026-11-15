@@ -15,6 +15,7 @@ test:
 	$(PYTHON) tests/test_server_comprehensive.py
 	$(PYTHON) tests/test_robustness_edge_cases.py
 	$(PYTHON) tests/test_server_security_and_stress.py
+	$(PYTHON) tests/test_youtube_robustness.py
 	npm test
 
 serve:

@@ -14,3 +14,10 @@ services:
         value: gemini-4-hydrogen
       - key: VIGIL_LOG_LEVEL
         value: INFO
+      # YouTube Bot Challenge Bypass for Cloud Datacenters:
+      # Option 1: Paste Netscape cookies content or base64 cookies into YOUTUBE_COOKIES
+      # Option 2: Upload a cookies.txt file to Render Secret Files (/etc/secrets/cookies.txt)
+      - key: YOUTUBE_COOKIES
+        sync: false
+      - key: YOUTUBE_PLAYER_CLIENTS
+        value: android,ios,mweb,web

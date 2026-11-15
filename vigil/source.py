@@ -17,6 +17,7 @@ path, and is the reason an unbounded run survives overnight.
 """
 from __future__ import annotations
 
+import base64
 import logging
 import os
 import queue
@@ -49,19 +50,114 @@ class SourceError(RuntimeError):
     pass
 
 
-def resolve_url(url: str, target_height: int = 480) -> str:
+class YouTubeBotDetectionError(SourceError):
+    """Raised when YouTube blocks the request due to datacenter IP / bot detection."""
+
+    def __init__(self, url: str, raw_details: str = ""):
+        self.url = url
+        self.raw_details = raw_details
+        msg = (
+            f"YouTube bot verification triggered for {url}. "
+            "YouTube blocks cloud and datacenter IP addresses (Render, AWS, GCP, etc.) without cookies. "
+            "To fix: configure YOUTUBE_COOKIES in Render's Environment Variables, provide cookies via "
+            "Advanced Settings, upload cookies.txt, or test using the 'Cloud-Ready HLS' live preset."
+        )
+        super().__init__(msg)
+
+
+class _YtDlpCaptureLogger:
+    """Captures yt-dlp warnings and errors for actionable diagnostic messages."""
+
+    def __init__(self) -> None:
+        self.messages: list[str] = []
+        self.errors: list[str] = []
+        self.warnings: list[str] = []
+
+    def debug(self, msg: str) -> None:
+        pass
+
+    def warning(self, msg: str) -> None:
+        s = str(msg)
+        self.warnings.append(s)
+        self.messages.append(s)
+
+    def error(self, msg: str) -> None:
+        s = str(msg)
+        self.errors.append(s)
+        self.messages.append(s)
+
+
+def resolve_cookie_file(cookie_input: str | None = None) -> str | None:
+    """Find or materialize a valid Netscape cookies file for yt-dlp.
+
+    Checks:
+      1. Explicit cookie_input (file path, raw Netscape text, or base64 text)
+      2. Environment variables: YOUTUBE_COOKIES, YTDLP_COOKIES, YOUTUBE_COOKIE_FILE, COOKIE_FILE
+      3. Standard secret file /etc/secrets/cookies.txt (Render Secret File)
+      4. Workspace files: cookies.txt or logs/youtube_cookies.txt
+    """
+    candidate = (cookie_input or "").strip()
+    if not candidate:
+        for env_var in ("YOUTUBE_COOKIES", "YTDLP_COOKIES", "YOUTUBE_COOKIE_FILE", "COOKIE_FILE"):
+            val = (os.environ.get(env_var) or "").strip()
+            if val:
+                candidate = val
+                break
+
+    if candidate and os.path.isfile(candidate):
+        return candidate
+
+    well_known_paths = [
+        "/etc/secrets/cookies.txt",            # Render secret file default mount
+        "cookies.txt",                        # Workspace root
+        os.path.join("logs", "cookies.txt"),
+        os.path.join("logs", "youtube_cookies.txt"),
+    ]
+    if not candidate:
+        for path in well_known_paths:
+            if os.path.isfile(path):
+                return path
+        return None
+
+    # candidate contains raw text or base64 string
+    content = candidate
+    if not ("# Netscape" in content or "\t" in content) and len(content) > 30:
+        try:
+            decoded = base64.b64decode(content, validate=True).decode("utf-8", errors="ignore")
+            if "# Netscape" in decoded or "\t" in decoded:
+                content = decoded
+        except Exception:
+            pass
+
+    try:
+        os.makedirs("logs", exist_ok=True)
+        target = os.path.abspath(os.path.join("logs", "youtube_cookies.txt"))
+        with open(target, "w", encoding="utf-8") as f:
+            f.write(content.strip() + "\n")
+        return target
+    except Exception as e:
+        log.warning("failed to write resolved cookies to logs/youtube_cookies.txt: %s", e)
+        return None
+
+
+def resolve_url(
+    url: str,
+    target_height: int = 480,
+    cookie_input: str | None = None,
+    player_clients: str | None = None,
+) -> str:
     """Turn a page URL into something OpenCV/ffmpeg can open.
 
     Local paths, webcam indices and direct media URLs pass straight through.
     Anything that looks like a site page goes to yt-dlp.
     """
-    if os.path.exists(url):
+    if os.path.exists(url) or url.isdigit():
         return url
-    if url.isdigit():
-        return url
+
     low = url.lower()
+    base_no_query = low.split("?")[0]
     direct = (".m3u8", ".mp4", ".mkv", ".ts", ".flv", ".webm")
-    if low.startswith("rtsp://") or low.endswith(direct):
+    if low.startswith("rtsp://") or base_no_query.endswith(direct) or ".m3u8" in low:
         return url
 
     try:
@@ -69,55 +165,93 @@ def resolve_url(url: str, target_height: int = 480) -> str:
     except ImportError as e:  # pragma: no cover
         raise SourceError("yt-dlp is required to resolve page URLs") from e
 
-    opts = {
+    is_youtube = ("youtube.com" in low) or ("youtu.be" in low)
+    cookie_file = resolve_cookie_file(cookie_input)
+
+    capture_logger = _YtDlpCaptureLogger()
+    base_opts: dict = {
         "quiet": True,
         "no_warnings": True,
-        "format": f"best[height<={target_height}]/best",
         "noplaylist": True,
+        "logger": capture_logger,
     }
+    if cookie_file:
+        base_opts["cookiefile"] = cookie_file
+        log.info("yt-dlp using cookies from %s", cookie_file)
+
+    clients_raw = player_clients or os.environ.get("YOUTUBE_PLAYER_CLIENTS", "android,ios,mweb,web")
+    client_list = [c.strip() for c in clients_raw.split(",") if c.strip()]
+
+    strategies = [
+        # Strategy 1: Multi-client fallback with target height format
+        {"format": f"best[height<={target_height}]/bestvideo[height<={target_height}]+bestaudio/best", "clients": client_list, "process": True},
+        # Strategy 2: Without format filter (HLS live streams frequently reject format string)
+        {"format": None, "clients": client_list, "process": False},
+        # Strategy 3: iOS client fallback (often bypasses bot check for live HLS streams)
+        {"format": None, "clients": ["ios"], "process": False},
+        # Strategy 4: Android client fallback
+        {"format": None, "clients": ["android"], "process": False},
+        # Strategy 5: TV embedded client fallback
+        {"format": None, "clients": ["tv_embedded"], "process": False},
+    ] if is_youtube else [
+        {"format": f"best[height<={target_height}]/best", "clients": None, "process": True},
+        {"format": None, "clients": None, "process": False},
+    ]
 
     info = None
-    # First try: normal extraction with format filtering.
-    with yt_dlp.YoutubeDL(opts) as ydl:
+    for strat in strategies:
+        opts = dict(base_opts)
+        if strat["format"]:
+            opts["format"] = strat["format"]
+        if is_youtube and strat["clients"]:
+            opts["extractor_args"] = {"youtube": {"player_client": strat["clients"]}}
+
         try:
-            info = ydl.extract_info(url, download=False)
-        except Exception:
-            pass
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(url, download=False, process=strat["process"])
+                if info:
+                    break
+        except Exception as e:
+            capture_logger.error(str(e))
 
-    if info is None:
-        # Second try: skip format selection entirely and just extract
-        # metadata.  HLS-only live streams (e.g. YouTube) have formats
-        # whose protocol is m3u8_native; yt-dlp's format selector
-        # sometimes rejects them even with "best".
-        log.warning("format filter failed; extracting without processing")
-        opts.pop("format", None)
-        try:
-            with yt_dlp.YoutubeDL(opts) as ydl2:
-                info = ydl2.extract_info(url, download=False, process=False)
-        except Exception:
-            pass
+    # Helper function to extract playable url from info dict
+    resolved_url = None
+    if info:
+        if info.get("url"):
+            resolved_url = info["url"]
+        else:
+            best_url = None
+            for f in info.get("formats", []):
+                furl = f.get("url")
+                if not furl:
+                    continue
+                h = f.get("height") or 0
+                if h and h <= target_height:
+                    best_url = furl
+                elif best_url is None:
+                    best_url = furl
+            if best_url:
+                resolved_url = best_url
 
-    if info is None:
-        raise SourceError(f"yt-dlp could not retrieve stream information for {url}")
+    if resolved_url:
+        return resolved_url
 
-    if info.get("url"):
-        return info["url"]
+    # Check for YouTube bot detection in errors
+    all_err_text = " ".join(capture_logger.messages).lower()
+    if is_youtube and any(
+        k in all_err_text
+        for k in (
+            "sign in to confirm you’re not a bot",
+            "confirm you're not a bot",
+            "bot",
+            "use --cookies",
+            "robot",
+        )
+    ):
+        raise YouTubeBotDetectionError(url, raw_details="; ".join(capture_logger.errors))
 
-    # Walk formats and pick the best one whose height is at most
-    # target_height, falling back to any playable URL.
-    best_url = None
-    for f in info.get("formats", []):
-        furl = f.get("url")
-        if not furl:
-            continue
-        h = f.get("height") or 0
-        if h and h <= target_height:
-            best_url = furl          # keep scanning for a higher-res match
-        elif best_url is None:
-            best_url = furl          # fallback: anything playable
-    if best_url:
-        return best_url
-    raise SourceError(f"yt-dlp returned no playable URL for {url}")
+    err_summary = "; ".join(capture_logger.errors[-2:]) if capture_logger.errors else "no playable stream found"
+    raise SourceError(f"yt-dlp could not retrieve stream information for {url}: {err_summary}")
 
 
 def find_ffmpeg() -> str | None:
@@ -161,7 +295,14 @@ class StreamSource:
     # -- lifecycle --------------------------------------------------------
     def start(self) -> None:
         self._t0 = time.monotonic()
-        self._resolved = resolve_url(self.url, self.cfg.target_height)
+        cookies = getattr(self.cfg, "youtube_cookies", None)
+        clients = getattr(self.cfg, "youtube_player_clients", None)
+        self._resolved = resolve_url(
+            self.url,
+            self.cfg.target_height,
+            cookie_input=cookies,
+            player_clients=clients,
+        )
         log.info("resolved source (%s)", "file" if self.is_file else "stream")
 
         tv = threading.Thread(target=self._video_loop, name="vigil-video",
@@ -258,8 +399,14 @@ class StreamSource:
                     except Exception:
                         pass
                     try:
-                        self._resolved = resolve_url(self.url,
-                                                     self.cfg.target_height)
+                        cookies = getattr(self.cfg, "youtube_cookies", None)
+                        clients = getattr(self.cfg, "youtube_player_clients", None)
+                        self._resolved = resolve_url(
+                            self.url,
+                            self.cfg.target_height,
+                            cookie_input=cookies,
+                            player_clients=clients,
+                        )
                         cap = self._open_capture()
                         self.reconnects += 1
                         consecutive_fail = 0

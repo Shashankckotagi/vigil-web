@@ -5,6 +5,8 @@ venv/
 .env
 logs/*.csv
 logs/*.json
+logs/*.txt
+*cookies.txt
 *.mp4
 *.avi
 !sample/demo_clip.avi

@@ -48,6 +48,9 @@ interface ControlBarProps {
   setGate: (val: boolean) => void;
   bounded: boolean;
   setBounded: (val: boolean) => void;
+  cookies?: string;
+  setCookies?: (c: string) => void;
+  hasServerCookies?: boolean;
   isRunning: boolean;
   isStarting: boolean;
   isUploading: boolean;
@@ -81,6 +84,9 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   setGate,
   bounded,
   setBounded,
+  cookies = '',
+  setCookies = () => {},
+  hasServerCookies = false,
   isRunning,
   isStarting,
   isUploading,
@@ -92,6 +98,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
 }) => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [showCookiesDrawer, setShowCookiesDrawer] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verifyStatus, setVerifyStatus] = useState<{
     valid?: boolean;
@@ -128,9 +135,19 @@ export const ControlBar: React.FC<ControlBarProps> = ({
 
   const presets = [
     {
+      label: 'Cloud-Ready HLS Live',
+      url: 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
+      badge: 'Cloud HLS',
+    },
+    {
+      label: 'Akamai Live Stream',
+      url: 'https://cph-p2p-msl.akamaized.net/hls/live/2000341/test/master.m3u8',
+      badge: 'Live',
+    },
+    {
       label: 'YouTube Live Stream',
       url: 'https://www.youtube.com/live/EO_1LWqsCNE',
-      badge: 'Live',
+      badge: 'YouTube',
     },
     {
       label: 'Bundled Demo Clip',
@@ -449,6 +466,41 @@ export const ControlBar: React.FC<ControlBarProps> = ({
             </div>
           )}
 
+          {/* YouTube Cookies Authentication Drawer */}
+          <div className="p-3 rounded-lg bg-card-subtle border border-border-subtle space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs text-ink-muted font-medium flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-accent-warm" />
+                YouTube Cookies (Cloud / Datacenter Authentication)
+              </label>
+              {hasServerCookies ? (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-accent-emerald/15 border border-accent-emerald/30 text-accent-emerald">
+                  Server Cookies Active
+                </span>
+              ) : cookies ? (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-accent-primary/15 border border-accent-primary/30 text-accent-primary">
+                  Client Cookies Set
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono text-ink-faint">
+                  Optional (for cloud bot bypass)
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-ink-faint leading-relaxed">
+              Cloud hosts (Render, AWS) are challenged by YouTube bot detection. Paste Netscape cookies text or a file path here to authenticate stream resolution.
+            </p>
+            <input
+              id="youtubeCookies"
+              type="text"
+              spellCheck="false"
+              placeholder="Paste Netscape cookies text or path to cookies.txt..."
+              value={cookies}
+              onChange={(e) => setCookies(e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-md border border-border-subtle bg-card text-xs text-ink-main placeholder:text-ink-faint focus:outline-none focus:border-border-hover font-mono"
+            />
+          </div>
+
           {/* Feature Toggles Strip */}
           <div className="flex items-center gap-4 flex-wrap pt-1 text-xs">
             {/* Audio Toggle */}
@@ -527,20 +579,64 @@ export const ControlBar: React.FC<ControlBarProps> = ({
       )}
 
       {/* Error banner */}
-      <div
-        id="errBanner"
-        style={{ display: errorMessage ? 'flex' : 'none' }}
-        className="items-center gap-2 p-3 rounded-lg bg-accent-rose/10 border border-accent-rose/30 text-accent-rose text-xs animate-fadeIn"
-      >
-        <AlertCircle className="w-4 h-4 shrink-0" />
-        <span className="flex-1">{errorMessage}</span>
-        <button
-          onClick={() => setErrorMessage(null)}
-          className="text-[11px] underline hover:opacity-80"
+      {errorMessage && (
+        <div
+          id="errBanner"
+          className="p-3.5 rounded-xl bg-accent-rose/10 border border-accent-rose/30 text-accent-rose text-xs animate-fadeIn space-y-2.5"
         >
-          Dismiss
-        </button>
-      </div>
+          <div className="flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-accent-rose" />
+            <div className="flex-1 space-y-1">
+              <span className="font-semibold block text-xs">
+                {errorMessage.includes('bot') || errorMessage.includes('cookies')
+                  ? 'YouTube Cloud Bot Challenge Triggered'
+                  : 'Stream Connection Error'}
+              </span>
+              <p className="text-[11px] leading-relaxed text-accent-rose/90">{errorMessage}</p>
+            </div>
+            <button
+              onClick={() => setErrorMessage(null)}
+              className="text-[11px] underline hover:opacity-80 ml-2"
+            >
+              Dismiss
+            </button>
+          </div>
+
+          {(errorMessage.includes('bot') || errorMessage.includes('cookies') || errorMessage.includes('could not retrieve stream information')) && (
+            <div className="flex items-center gap-2 pt-2 border-t border-accent-rose/20 flex-wrap">
+              <span className="text-[10px] font-medium text-ink-faint">Quick Solutions:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setUrl('https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8');
+                  setErrorMessage(null);
+                }}
+                className="px-2.5 py-1 rounded bg-accent-rose/20 hover:bg-accent-rose/30 text-accent-rose text-[11px] font-medium transition-colors cursor-pointer"
+              >
+                Use Cloud-Ready HLS Preset →
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAdvanced(true);
+                  const el = document.getElementById('youtubeCookies');
+                  if (el) el.focus();
+                }}
+                className="px-2.5 py-1 rounded border border-accent-rose/30 hover:bg-accent-rose/15 text-accent-rose text-[11px] transition-colors cursor-pointer"
+              >
+                Configure Cookies →
+              </button>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="px-2.5 py-1 rounded border border-accent-rose/30 hover:bg-accent-rose/15 text-accent-rose text-[11px] transition-colors cursor-pointer"
+              >
+                Upload Video Clip →
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 };

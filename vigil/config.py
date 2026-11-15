@@ -31,6 +31,8 @@ class Config:
     reconnect_max_attempts: int = 10
     reconnect_backoff_s: float = 2.0
     replay_speed: float = 1.0         # >1 replays a file faster than real time
+    youtube_cookies: str = ""         # path to cookies.txt or raw Netscape cookies string
+    youtube_player_clients: str = "android,ios,mweb,web"  # yt-dlp client fallback order
 
     # ---- gate (Objective 1) --------------------------------------------
     gate_enabled: bool = True
@@ -95,10 +97,14 @@ class Config:
         c.log_dir = _env("VIGIL_LOG_DIR", c.log_dir)
         c.replay_speed = _env("VIGIL_REPLAY_SPEED", c.replay_speed, float)
         c.emit_verbose_events = _env("VIGIL_EMIT_VERBOSE_EVENTS", c.emit_verbose_events, bool)
+        c.youtube_cookies = _env("YOUTUBE_COOKIES", _env("YTDLP_COOKIES", c.youtube_cookies))
+        c.youtube_player_clients = _env("YOUTUBE_PLAYER_CLIENTS", c.youtube_player_clients)
         return c
 
     def to_dict(self) -> dict:
         d = asdict(self)
         if d.get("gemini_api_key"):
             d["gemini_api_key"] = "***redacted***"
+        if d.get("youtube_cookies"):
+            d["youtube_cookies"] = "***configured***"
         return d

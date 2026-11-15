@@ -44,6 +44,7 @@ export interface PipelineStatus {
   gate?: PipelineGateStatus;
   metrics?: PipelineMetricsStatus;
   memory?: PipelineMemoryStatus;
+  has_youtube_cookies?: boolean;
 }
 
 export interface PricingConfig {
@@ -68,6 +69,7 @@ export interface StartRequest {
   gate?: boolean;
   run_id?: string;
   api_key?: string;
+  cookies?: string;
 }
 
 export interface VerifyKeyResponse {

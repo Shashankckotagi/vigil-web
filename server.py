@@ -24,6 +24,7 @@ from pydantic import BaseModel
 
 from vigil.config import Config
 from vigil.pipeline import Pipeline
+from vigil.source import SourceError, YouTubeBotDetectionError, resolve_cookie_file
 
 logging.basicConfig(
     level=os.environ.get("VIGIL_LOG_LEVEL", "INFO"),
@@ -58,6 +59,7 @@ class StartRequest(BaseModel):
     gate: bool | None = None
     run_id: str | None = None
     api_key: str | None = None
+    cookies: str | None = None
 
 
 class VerifyKeyRequest(BaseModel):
@@ -200,6 +202,8 @@ async def start(req: StartRequest) -> Any:
         cfg.gate_enabled = bool(req.gate)
     if req.api_key:
         cfg.gemini_api_key = req.api_key.strip()
+    if req.cookies:
+        cfg.youtube_cookies = req.cookies.strip()
     cfg.run_id = req.run_id or f"ui-{int(time.time())}"
 
     try:
@@ -212,8 +216,38 @@ async def start(req: StartRequest) -> Any:
     hub.pipeline = pipeline
     try:
         await pipeline.start()
+    except YouTubeBotDetectionError as e:
+        log.warning("YouTube bot check triggered for %s: %s", req.url, e)
+        hub.pipeline = None
+        try:
+            await pipeline.stop()
+        except Exception:
+            pass
+        return JSONResponse({
+            "error": str(e),
+            "code": "YOUTUBE_BOT_DETECTED",
+            "url": req.url,
+            "help": (
+                "YouTube is challenging access from this cloud server IP address. "
+                "Provide cookies via YOUTUBE_COOKIES environment variable, enter them in Advanced Settings, "
+                "or click the 'Cloud-Ready HLS' preset."
+            ),
+        }, 400)
+    except SourceError as e:
+        log.warning("Source resolution failed for %s: %s", req.url, e)
+        hub.pipeline = None
+        try:
+            await pipeline.stop()
+        except Exception:
+            pass
+        return JSONResponse({"error": str(e), "code": "SOURCE_ERROR", "url": req.url}, 400)
     except Exception as e:
         log.exception("failed to start")
+        hub.pipeline = None
+        try:
+            await pipeline.stop()
+        except Exception:
+            pass
         return JSONResponse({"error": str(e)}, 500)
     return {"ok": True, "run_id": cfg.run_id, "status": pipeline.status()}
 
@@ -418,6 +452,11 @@ async def pricing() -> Any:
         "default": {"input_per_million": 1.50, "output_per_million": 7.50},
         "usd_to_inr": 86.0
     }
+
+
+@app.get("/api/cookies")
+async def get_cookies_status() -> Any:
+    return {"has_youtube_cookies": bool(resolve_cookie_file())}
 
 
 @app.get("/api/status")
