@@ -62,7 +62,7 @@ class StartRequest(BaseModel):
 
 class VerifyKeyRequest(BaseModel):
     api_key: str
-    model: str | None = "gemini-2.5-flash"
+    model: str | None = "gemini-4-hydrogen"
     provider: str | None = "gemini"
 
 
@@ -271,7 +271,7 @@ async def verify_key(req: VerifyKeyRequest) -> Any:
     """Verify that an API key works by sending a minimal ping request to the model gateway."""
     key = (req.api_key or "").strip()
     provider = (req.provider or "gemini").lower()
-    model = (req.model or "gemini-2.5-flash").strip()
+    model = (req.model or "gemini-4-hydrogen").strip()
 
     if provider == "mock":
         return {
@@ -369,17 +369,11 @@ async def verify_key(req: VerifyKeyRequest) -> Any:
 async def get_models(api_key: str | None = None) -> Any:
     """Return supported Gemini models with real-time discovery if API key is provided."""
     curated = [
-        {"id": "gemini-3.5-flash-lite", "name": "Gemini 3.5 Flash-Lite", "category": "Ultra-Fast & Cost-Efficient (Recommended)"},
-        {"id": "gemini-4-hydrogen", "name": "Gemini 4 Hydrogen", "category": "High-Speed Agentic Multimodal"},
-        {"id": "gemini-4-argon", "name": "Gemini 4 Argon", "category": "Deep Reasoning & Developer Workloads"},
-        {"id": "gemini-4-carbon", "name": "Gemini 4 Carbon", "category": "Frontier Multimodal Flagship"},
-        {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "category": "Fast & Efficient"},
-        {"id": "gemini-2.5-pro", "name": "Gemini 2.5 Pro", "category": "Frontier Multimodal Reasoning"},
-        {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "category": "High Throughput Workhorse"},
-        {"id": "gemini-2.0-flash-lite", "name": "Gemini 2.0 Flash-Lite", "category": "Budget High Speed"},
-        {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "category": "Standard Fast Multimodal"},
-        {"id": "gemini-1.5-flash-8b", "name": "Gemini 1.5 Flash-8B", "category": "High Frequency Volume"},
-        {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro", "category": "Standard Deep Reasoning"},
+        {"id": "gemini-4-hydrogen", "name": "Gemini 4 Hydrogen", "category": "Fast multimodal agent"},
+        {"id": "gemini-4-argon", "name": "Gemini 4 Argon", "category": "Balanced reasoning"},
+        {"id": "gemini-4-carbon", "name": "Gemini 4 Carbon", "category": "Deep reasoning"},
+        {"id": "gemini-3.8-flash", "name": "Gemini 3.8 Flash", "category": "High throughput multimodal"},
+        {"id": "gemini-3.5-flash-lite", "name": "Gemini 3.5 Flash-Lite", "category": "Lightweight high speed"},
     ]
 
     key = (api_key or "").strip() or os.getenv("GEMINI_API_KEY", "").strip()
@@ -416,13 +410,12 @@ async def pricing() -> Any:
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     return {
-        "gemini-2.5-flash": {"input_per_million": 0.075, "output_per_million": 0.30},
-        "gemini-2.5-pro": {"input_per_million": 1.25, "output_per_million": 5.00},
-        "gemini-2.0-flash": {"input_per_million": 0.10, "output_per_million": 0.40},
-        "gemini-2.0-flash-lite": {"input_per_million": 0.075, "output_per_million": 0.30},
-        "gemini-1.5-flash": {"input_per_million": 0.075, "output_per_million": 0.30},
-        "gemini-1.5-pro": {"input_per_million": 1.25, "output_per_million": 5.00},
-        "default": {"input_per_million": 0.075, "output_per_million": 0.30},
+        "gemini-4-carbon": {"input_per_million": 2.00, "output_per_million": 10.00},
+        "gemini-4-argon": {"input_per_million": 2.00, "output_per_million": 10.00},
+        "gemini-4-hydrogen": {"input_per_million": 1.50, "output_per_million": 7.50},
+        "gemini-3.8-flash": {"input_per_million": 0.10, "output_per_million": 0.40},
+        "gemini-3.5-flash-lite": {"input_per_million": 0.30, "output_per_million": 2.50},
+        "default": {"input_per_million": 1.50, "output_per_million": 7.50},
         "usd_to_inr": 86.0
     }
 

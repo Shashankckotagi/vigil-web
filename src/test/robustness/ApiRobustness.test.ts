@@ -52,7 +52,7 @@ describe('API Robustness & Edge Cases', () => {
     const pricing = await fetchPricing();
     expect(pricing).toBeDefined();
     expect(pricing.usd_to_inr).toBe(86.0);
-    expect(pricing['gemini-2.5-flash'].input_per_million).toBe(0.075);
+    expect(pricing['gemini-4-hydrogen'].input_per_million).toBe(1.50);
   });
 
   it('correctly handles backend URL trimming, trailing slashes and empty string', () => {

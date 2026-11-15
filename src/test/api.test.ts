@@ -98,7 +98,7 @@ describe('API Service', () => {
   describe('fetchPricing', () => {
     it('returns pricing data when endpoint succeeds', async () => {
       const mockPricing = {
-        'gemini-2.5-flash': { input_per_million: 0.075, output_per_million: 0.3 },
+        'gemini-4-hydrogen': { input_per_million: 1.50, output_per_million: 7.50 },
         usd_to_inr: 86.0,
       };
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
@@ -116,7 +116,7 @@ describe('API Service', () => {
       const res = await fetchPricing();
       expect(res).toBeDefined();
       expect(res.usd_to_inr).toBe(86.0);
-      expect((res as any)['gemini-2.5-flash'].input_per_million).toBe(0.075);
+      expect((res as any)['gemini-4-hydrogen'].input_per_million).toBe(1.50);
     });
   });
 
@@ -216,7 +216,7 @@ describe('API Service', () => {
       const mockResult = {
         valid: true,
         provider: 'gemini',
-        model: 'gemini-2.5-flash',
+        model: 'gemini-4-hydrogen',
         message: 'Verified!',
         latency_ms: 120.5,
       };
@@ -225,15 +225,15 @@ describe('API Service', () => {
         json: async () => mockResult,
       }));
 
-      const res = await verifyApiKey('AIzaSy_valid_key', 'gemini-2.5-flash');
+      const res = await verifyApiKey('AIzaSy_valid_key', 'gemini-4-hydrogen');
       expect(res.valid).toBe(true);
-      expect(res.model).toBe('gemini-2.5-flash');
+      expect(res.model).toBe('gemini-4-hydrogen');
       expect(fetch).toHaveBeenCalledWith(
         '/api/verify-key',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ api_key: 'AIzaSy_valid_key', model: 'gemini-2.5-flash', provider: 'gemini' }),
+          body: JSON.stringify({ api_key: 'AIzaSy_valid_key', model: 'gemini-4-hydrogen', provider: 'gemini' }),
         })
       );
     });

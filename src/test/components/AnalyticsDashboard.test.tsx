@@ -7,7 +7,7 @@ import { PipelineStatus, FormattedEvent } from '../../types';
 describe('AnalyticsDashboard Component', () => {
   const mockStatus: PipelineStatus = {
     running: true,
-    provider: 'gemini-2.5-flash',
+    provider: 'gemini-4-hydrogen',
     tau: 0.92,
     gate: {
       frames_seen: 1000,

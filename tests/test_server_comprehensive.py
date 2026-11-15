@@ -34,7 +34,7 @@ def test_pricing_endpoint_comprehensive():
     data = res.json()
     assert "usd_to_inr" in data
     assert data["usd_to_inr"] > 0
-    assert ("gemini-2.5-flash" in data) or ("default" in data)
+    assert ("gemini-4-hydrogen" in data) or ("default" in data)
 
 
 def test_upload_endpoint_edge_cases():

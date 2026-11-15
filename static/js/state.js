@@ -16,10 +16,10 @@ export class StatePresenter {
     }
   }
 
-  calculateCost(tokensIn = 0, tokensOut = 0, modelName = 'gemini-2.5-flash') {
+  calculateCost(tokensIn = 0, tokensOut = 0, modelName = 'gemini-4-hydrogen') {
     const modelPricing = this.pricing[modelName] || this.pricing['default'] || {
-      input_per_million: 0.075,
-      output_per_million: 0.30
+      input_per_million: 1.50,
+      output_per_million: 7.50
     };
     const usdIn = (tokensIn / 1_000_000) * modelPricing.input_per_million;
     const usdOut = (tokensOut / 1_000_000) * modelPricing.output_per_million;

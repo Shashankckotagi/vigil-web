@@ -69,7 +69,7 @@ export const SystemInspector: React.FC<SystemInspectorProps> = ({ status, events
               <Server className="w-4 h-4 text-accent-primary" />
             </div>
             <div className="text-lg font-mono font-semibold text-ink-main uppercase">
-              {status?.provider || 'gemini-2.5-flash'}
+              {status?.provider || 'gemini-4-hydrogen'}
             </div>
           </div>
 

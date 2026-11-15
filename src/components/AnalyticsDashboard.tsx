@@ -34,12 +34,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   tau,
 }) => {
   const safePricing: any = pricing || {
-    'gemini-3.5-flash-lite': { input_per_million: 0.30, output_per_million: 2.50 },
-    'gemini-4-hydrogen': { input_per_million: 1.50, output_per_million: 7.50 },
-    'gemini-4-argon': { input_per_million: 2.00, output_per_million: 10.00 },
     'gemini-4-carbon': { input_per_million: 2.00, output_per_million: 10.00 },
-    'gemini-2.5-flash': { input_per_million: 0.075, output_per_million: 0.3 },
-    default: { input_per_million: 0.075, output_per_million: 0.3 },
+    'gemini-4-argon': { input_per_million: 2.00, output_per_million: 10.00 },
+    'gemini-4-hydrogen': { input_per_million: 1.50, output_per_million: 7.50 },
+    'gemini-3.8-flash': { input_per_million: 0.10, output_per_million: 0.40 },
+    'gemini-3.5-flash-lite': { input_per_million: 0.30, output_per_million: 2.50 },
+    default: { input_per_million: 1.50, output_per_million: 7.50 },
     usd_to_inr: 86.0,
   };
 
@@ -59,12 +59,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   const tokensOut = metrics.tokens_out || Math.round(tokensTotal * 0.15);
   const tokensPerHour = Math.round(metrics.tokens_per_hour || 0);
 
-  const model = status?.provider || 'gemini-2.5-flash';
+  const model = status?.provider || 'gemini-4-hydrogen';
   const rateConfig = (safePricing[model] || safePricing['default']) as
     | { input_per_million: number; output_per_million: number }
     | undefined;
-  const inRate = rateConfig?.input_per_million ?? 0.075;
-  const outRate = rateConfig?.output_per_million ?? 0.3;
+  const inRate = rateConfig?.input_per_million ?? 1.50;
+  const outRate = rateConfig?.output_per_million ?? 7.50;
 
   const actualUsd = (tokensIn / 1_000_000) * inRate + (tokensOut / 1_000_000) * outRate;
   const usdToInr = safePricing.usd_to_inr || 86.0;
@@ -134,11 +134,20 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
   const reconnects = status?.reconnects ?? 0;
 
   // Comparison matrix data
+  const isGemini = model.includes('gemini');
+  const activeGeminiLabel = isGemini ? (
+    model === 'gemini-4-carbon' ? 'Gemini 4 Carbon (Active)' :
+    model === 'gemini-4-argon' ? 'Gemini 4 Argon (Active)' :
+    model === 'gemini-3.8-flash' ? 'Gemini 3.8 Flash (Active)' :
+    model === 'gemini-3.5-flash-lite' ? 'Gemini 3.5 Flash-Lite (Active)' :
+    'Gemini 4 Hydrogen (Active)'
+  ) : 'Gemini 4 Hydrogen';
+
   const comparisonModels = [
-    { name: 'Gemini 2.5 Flash (Active)', inM: '$0.075', outM: '$0.30', isCurrent: model.includes('gemini') },
+    { name: activeGeminiLabel, inM: '$1.50', outM: '$7.50', isCurrent: isGemini },
     { name: 'Claude 3.5 Sonnet', inM: '$3.00', outM: '$15.00', isCurrent: false },
     { name: 'GPT-4o (Vision)', inM: '$2.50', outM: '$10.00', isCurrent: false },
-    { name: 'Gemini 1.5 Pro', inM: '$1.25', outM: '$5.00', isCurrent: false },
+    { name: 'Gemini 4 Carbon', inM: '$2.00', outM: '$10.00', isCurrent: false },
     { name: 'Ollama qwen2.5vl (Local)', inM: '$0.00 (Self-hosted)', outM: '$0.00', isCurrent: model.includes('ollama') },
   ];
 

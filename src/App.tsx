@@ -35,7 +35,7 @@ export const App: React.FC = () => {
   const [url, setUrl] = useState('https://www.youtube.com/live/EO_1LWqsCNE');
   const [tau, setTau] = useState(0.92);
   const [provider, setProvider] = useState('mock');
-  const [model, setModel] = useState('gemini-2.5-flash');
+  const [model, setModel] = useState('gemini-4-hydrogen');
   const [apiKey, setApiKey] = useState(() => localStorage.getItem(STORAGE_KEY_GEMINI_KEY) || '');
   const [runId, setRunId] = useState('');
   const [backendUrl, setBackendUrlState] = useState(() => getBackendUrl());
@@ -50,12 +50,12 @@ export const App: React.FC = () => {
   // Status & Telemetry State
   const [status, setStatus] = useState<PipelineStatus | null>(null);
   const [pricing, setPricing] = useState<PricingConfig>({
-    'gemini-3.5-flash-lite': { input_per_million: 0.30, output_per_million: 2.50 },
-    'gemini-4-hydrogen': { input_per_million: 1.50, output_per_million: 7.50 },
-    'gemini-4-argon': { input_per_million: 2.00, output_per_million: 10.00 },
     'gemini-4-carbon': { input_per_million: 2.00, output_per_million: 10.00 },
-    'gemini-2.5-flash': { input_per_million: 0.075, output_per_million: 0.3 },
-    default: { input_per_million: 0.075, output_per_million: 0.3 },
+    'gemini-4-argon': { input_per_million: 2.00, output_per_million: 10.00 },
+    'gemini-4-hydrogen': { input_per_million: 1.50, output_per_million: 7.50 },
+    'gemini-3.8-flash': { input_per_million: 0.10, output_per_million: 0.40 },
+    'gemini-3.5-flash-lite': { input_per_million: 0.30, output_per_million: 2.50 },
+    default: { input_per_million: 1.50, output_per_million: 7.50 },
     usd_to_inr: 86.0,
   });
   const [wsStatus, setWsStatus] = useState<SocketStatus>('connecting');

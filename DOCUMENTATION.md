@@ -126,7 +126,7 @@ This architecture guarantees that the total token count presented to the model p
 All model interaction runs through an abstract `Provider` base class:
 - **Mock Provider (`mock`):** Runs completely offline with deterministic heuristics, returning simulated scene descriptions and realistic token counts without network access.
 - **Ollama Provider (`ollama`):** Connects to local self-hosted open vision-language models such as `qwen2.5-vl` over localhost HTTP.
-- **Google Gemini Provider (`gemini`):** Dispatches multimodal requests to Google Gemini models (`gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.0-flash`, etc.) using base64 JPEG encoded images and structured prompting.
+- **Google Gemini Provider (`gemini`):** Sends multimodal requests to Gemini models (such as `gemini-4-hydrogen`, `gemini-4-argon`, `gemini-4-carbon`, `gemini-3.8-flash`, and `gemini-3.5-flash-lite`) using base64 JPEG encoded images and structured prompts.
 
 ---
 
@@ -154,7 +154,7 @@ All model interaction runs through an abstract `Provider` base class:
   "tau": 0.92,
   "escalation": true,
   "provider": "gemini",
-  "model": "gemini-2.5-flash",
+  "model": "gemini-4-hydrogen",
   "bounded": true,
   "audio": true,
   "gate": true,
@@ -390,7 +390,7 @@ Host the Python backend on Render and the React SPA on Vercel. This split pairs 
 3. Set the following environment variables in the Render dashboard:
    - `GEMINI_API_KEY`: Your Gemini API key from Google AI Studio.
    - `VIGIL_PROVIDER`: `gemini`
-   - `GEMINI_MODEL`: `gemini-2.5-flash`
+   - `GEMINI_MODEL`: `gemini-4-hydrogen`
    - `VIGIL_LOG_LEVEL`: `INFO`
 4. Set the health check path to `/api/status`.
 5. Deploy the service and copy the public service URL (for example, `https://vigil-backend.onrender.com`).

@@ -189,7 +189,7 @@ class GeminiProvider(BaseProvider):
             raise ProviderError("GEMINI_API_KEY is not set")
         self.cfg = cfg
         self._client = httpx.AsyncClient(timeout=cfg.request_timeout_s)
-        self.model_name = getattr(cfg, "gemini_model", "gemini-2.5-flash") or "gemini-2.5-flash"
+        self.model_name = getattr(cfg, "gemini_model", "gemini-4-hydrogen") or "gemini-4-hydrogen"
         self._url = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
             f"{self.model_name}:generateContent"
@@ -213,7 +213,10 @@ class GeminiProvider(BaseProvider):
         try:
             r = await self._client.post(
                 self._url, json=body,
-                headers={"x-goog-api-key": self.cfg.gemini_api_key},
+                headers={
+                    "x-goog-api-key": self.cfg.gemini_api_key,
+                    "Content-Type": "application/json",
+                },
             )
         except Exception as e:
             raise ProviderError(f"gemini unreachable: {e}") from e

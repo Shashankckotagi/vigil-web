@@ -5,7 +5,7 @@ import { TelemetryMetrics } from '../../components/TelemetryMetrics';
 
 describe('TelemetryMetrics Component', () => {
   const mockPricing = {
-    'gemini-2.5-flash': { input_per_million: 0.075, output_per_million: 0.3 },
+    'gemini-4-hydrogen': { input_per_million: 1.50, output_per_million: 7.50 },
     usd_to_inr: 86.0,
   };
 
@@ -40,7 +40,7 @@ describe('TelemetryMetrics Component', () => {
 
   it('calculates token rate, USD cost and INR cost conversion', () => {
     const status = {
-      provider: 'gemini-2.5-flash',
+      provider: 'gemini-4-hydrogen',
       metrics: {
         tokens_total: 1_000_000,
         tokens_in: 850_000,

@@ -200,15 +200,15 @@ describe('ControlBar Component', () => {
 
   it('renders Gemini model variant selector and updates selected model', () => {
     const setModelMock = vi.fn();
-    render(<ControlBar {...defaultProps} provider="gemini" model="gemini-2.5-flash" setModel={setModelMock} />);
+    render(<ControlBar {...defaultProps} provider="gemini" model="gemini-4-hydrogen" setModel={setModelMock} />);
     fireEvent.click(screen.getByTitle('Toggle advanced tuning parameters'));
 
     const modelSelect = document.getElementById('geminiModelSelect') as HTMLSelectElement;
     expect(modelSelect).toBeInTheDocument();
-    expect(modelSelect.value).toBe('gemini-2.5-flash');
+    expect(modelSelect.value).toBe('gemini-4-hydrogen');
 
-    fireEvent.change(modelSelect, { target: { value: 'gemini-2.5-pro' } });
-    expect(setModelMock).toHaveBeenCalledWith('gemini-2.5-pro');
+    fireEvent.change(modelSelect, { target: { value: 'gemini-4-carbon' } });
+    expect(setModelMock).toHaveBeenCalledWith('gemini-4-carbon');
   });
 
   it('provides a functional Verify Key button for Gemini credentials', async () => {

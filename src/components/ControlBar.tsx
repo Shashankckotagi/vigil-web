@@ -65,7 +65,7 @@ export const ControlBar: React.FC<ControlBarProps> = ({
   setTau,
   provider,
   setProvider,
-  model = 'gemini-2.5-flash',
+  model = 'gemini-4-hydrogen',
   setModel = () => {},
   apiKey,
   setApiKey,
@@ -331,16 +331,11 @@ export const ControlBar: React.FC<ControlBarProps> = ({
                   onChange={(e) => setModel(e.target.value)}
                   className="w-full px-2.5 py-1.5 rounded-md border border-border-subtle bg-card text-xs text-ink-main focus:outline-none focus:border-border-hover font-mono"
                 >
-                  <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite</option>
                   <option value="gemini-4-hydrogen">Gemini 4 Hydrogen</option>
                   <option value="gemini-4-argon">Gemini 4 Argon</option>
                   <option value="gemini-4-carbon">Gemini 4 Carbon</option>
-                  <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                  <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                  <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash-Lite</option>
-                  <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                  <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+                  <option value="gemini-3.5-flash-lite">Gemini 3.5 Flash-Lite</option>
                 </select>
               </div>
             ) : (

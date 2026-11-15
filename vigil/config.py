@@ -71,7 +71,7 @@ class Config:
 
     # ---- provider ------------------------------------------------------
     provider: str = "mock"            # mock | ollama | gemini
-    gemini_model: str = "gemini-2.5-flash"
+    gemini_model: str = "gemini-4-hydrogen"
     gemini_api_key: str = ""
     ollama_host: str = "http://localhost:11434"
     ollama_model: str = "qwen2.5vl:7b"

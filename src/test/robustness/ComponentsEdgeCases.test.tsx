@@ -179,7 +179,7 @@ describe('UI Components Edge Cases & Stress Resilience', () => {
     it('handles millions of tokens formatted properly with currency calculations', () => {
       const status: any = {
         running: true,
-        provider: 'gemini-2.5-flash',
+        provider: 'gemini-4-hydrogen',
         metrics: {
           run_id: 'prod-run',
           chunks_done: 450,
@@ -199,7 +199,7 @@ describe('UI Components Edge Cases & Stress Resilience', () => {
         },
       };
       const pricing: any = {
-        'gemini-2.5-flash': { input_per_million: 0.075, output_per_million: 0.3 },
+        'gemini-4-hydrogen': { input_per_million: 1.50, output_per_million: 7.50 },
         default: { input_per_million: 0.075, output_per_million: 0.3 },
         usd_to_inr: 86.0,
       };

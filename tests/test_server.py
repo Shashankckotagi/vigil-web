@@ -71,7 +71,7 @@ def test_pricing_endpoint():
     resp = client.get("/api/pricing")
     assert resp.status_code == 200
     data = resp.json()
-    assert "gemini-2.5-flash" in data or "default" in data
+    assert "gemini-4-hydrogen" in data or "default" in data
     assert "usd_to_inr" in data
     assert data["usd_to_inr"] > 0
 
@@ -198,7 +198,7 @@ def test_verify_key_endpoint():
     invalid_resp = client.post("/api/verify-key", json={
         "api_key": "AIzaSy_fake_invalid_test_key_12345",
         "provider": "gemini",
-        "model": "gemini-2.5-flash"
+        "model": "gemini-4-hydrogen"
     })
     # Will fail at Google gateway with 400/401/403 or network error
     assert invalid_resp.status_code in (400, 401, 403, 500, 504)
@@ -222,10 +222,10 @@ def test_start_requires_gemini_api_key():
         assert resp.status_code == 400
         assert "Gemini API key is required" in resp.json().get("error", "")
 
-        # Attempt starting with model variant provider=gemini-2.5-pro without key
+        # Attempt starting with model variant provider=gemini-4-carbon without key
         resp2 = client.post("/api/start", json={
             "url": "tests/fixtures/synthetic_bar.mp4",
-            "provider": "gemini-2.5-pro",
+            "provider": "gemini-4-carbon",
             "api_key": ""
         })
         assert resp2.status_code == 400
@@ -241,16 +241,17 @@ def test_pricing_includes_latest_gemini_models():
     resp = client.get("/api/pricing")
     assert resp.status_code == 200
     data = resp.json()
-    assert "gemini-3.5-flash-lite" in data
     assert "gemini-4-carbon" in data
     assert "gemini-4-argon" in data
     assert "gemini-4-hydrogen" in data
-    assert "gemini-2.5-flash" in data
-    assert "gemini-2.5-pro" in data
-    assert "gemini-2.0-flash" in data
-    assert "gemini-2.0-flash-lite" in data
-    assert "gemini-1.5-flash" in data
-    assert "gemini-1.5-pro" in data
+    assert "gemini-3.8-flash" in data
+    assert "gemini-3.5-flash-lite" in data
+    assert "gemini-2.5-flash" not in data
+    assert "gemini-2.5-pro" not in data
+    assert "gemini-2.0-flash" not in data
+    assert "gemini-2.0-flash-lite" not in data
+    assert "gemini-1.5-flash" not in data
+    assert "gemini-1.5-pro" not in data
 
 
 if __name__ == "__main__":

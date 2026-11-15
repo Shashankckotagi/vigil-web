@@ -170,21 +170,21 @@ def test_pricing_and_cost_calculations():
     with open(pricing_path, "r", encoding="utf-8") as f:
         pricing = json.load(f)
 
-    def calculate_cost(tokens_in, tokens_out, model="gemini-2.5-flash"):
+    def calculate_cost(tokens_in, tokens_out, model="gemini-4-hydrogen"):
         rates = pricing.get(model, pricing["default"])
         usd = (tokens_in / 1_000_000) * rates["input_per_million"] + (tokens_out / 1_000_000) * rates["output_per_million"]
         inr = usd * pricing.get("usd_to_inr", 86.0)
         return usd, inr
 
-    # 1,000,000 input + 1,000,000 output tokens on gemini-2.5-flash
-    usd, inr = calculate_cost(1_000_000, 1_000_000, "gemini-2.5-flash")
-    assert round(usd, 4) == round(0.075 + 0.30, 4)
-    assert round(inr, 2) == round((0.075 + 0.30) * 86.0, 2)
+    # 1,000,000 input + 1,000,000 output tokens on gemini-4-hydrogen
+    usd, inr = calculate_cost(1_000_000, 1_000_000, "gemini-4-hydrogen")
+    assert round(usd, 4) == round(1.50 + 7.50, 4)
+    assert round(inr, 2) == round((1.50 + 7.50) * 86.0, 2)
 
-    # 100,000 tokens in on gemini-1.5-pro
-    usd_pro, inr_pro = calculate_cost(100_000, 0, "gemini-1.5-pro")
-    assert round(usd_pro, 4) == 0.125
-    assert round(inr_pro, 2) == round(0.125 * 86.0, 2)
+    # 100,000 tokens in on gemini-4-carbon
+    usd_pro, inr_pro = calculate_cost(100_000, 0, "gemini-4-carbon")
+    assert round(usd_pro, 4) == 0.20
+    assert round(inr_pro, 2) == round(0.20 * 86.0, 2)
 
 
 def test_filter_and_search_logic():

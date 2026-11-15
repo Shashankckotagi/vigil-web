@@ -58,12 +58,12 @@ export async function fetchPricing(): Promise<PricingConfig> {
     // fallback
   }
   return {
-    'gemini-3.5-flash-lite': { input_per_million: 0.30, output_per_million: 2.50 },
-    'gemini-4-hydrogen': { input_per_million: 1.50, output_per_million: 7.50 },
-    'gemini-4-argon': { input_per_million: 2.00, output_per_million: 10.00 },
     'gemini-4-carbon': { input_per_million: 2.00, output_per_million: 10.00 },
-    'gemini-2.5-flash': { input_per_million: 0.075, output_per_million: 0.3 },
-    default: { input_per_million: 0.075, output_per_million: 0.3 },
+    'gemini-4-argon': { input_per_million: 2.00, output_per_million: 10.00 },
+    'gemini-4-hydrogen': { input_per_million: 1.50, output_per_million: 7.50 },
+    'gemini-3.8-flash': { input_per_million: 0.10, output_per_million: 0.40 },
+    'gemini-3.5-flash-lite': { input_per_million: 0.30, output_per_million: 2.50 },
+    default: { input_per_million: 1.50, output_per_million: 7.50 },
     usd_to_inr: 86.0,
   };
 }
@@ -123,7 +123,7 @@ export async function uploadVideoFile(file: File): Promise<{ ok: boolean; path: 
 
 export async function verifyApiKey(
   apiKey: string,
-  model = 'gemini-2.5-flash',
+  model = 'gemini-4-hydrogen',
   provider = 'gemini'
 ): Promise<VerifyKeyResponse> {
   try {

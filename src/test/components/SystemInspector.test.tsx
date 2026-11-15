@@ -7,7 +7,7 @@ import { PipelineStatus, FormattedEvent } from '../../types';
 describe('SystemInspector Component', () => {
   const mockStatus: PipelineStatus = {
     running: true,
-    provider: 'gemini-2.5-flash',
+    provider: 'gemini-4-hydrogen',
     frames_captured: 1200,
     reconnects: 1,
     queue_depth: 2,
@@ -52,7 +52,7 @@ describe('SystemInspector Component', () => {
 
     expect(screen.getByText(/System Status/i)).toBeInTheDocument();
     expect(screen.getByText('ACTIVE')).toBeInTheDocument();
-    expect(screen.getByText(/gemini-2.5-flash/i)).toBeInTheDocument();
+    expect(screen.getByText(/gemini-4-hydrogen/i)).toBeInTheDocument();
   });
 
   it('renders bounded memory architecture details and compaction ledger', () => {

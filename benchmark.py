@@ -124,7 +124,7 @@ def load_pricing(pricing_path: str = "pricing.json") -> Tuple[float, float, floa
             with open(pricing_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 usd_to_inr = float(data.get("usd_to_inr", usd_to_inr))
-                gem = data.get("gemini-2.5-flash") or data.get("default") or {}
+                gem = data.get("gemini-4-hydrogen") or data.get("default") or {}
                 default_input_m = float(gem.get("input_per_million", default_input_m))
                 default_output_m = float(gem.get("output_per_million", default_output_m))
         except Exception as e:
